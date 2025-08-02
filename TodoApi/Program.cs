@@ -7,15 +7,27 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<TodoDbContext>(opt =>
     opt.UseSqlServer(
         builder.Configuration.GetConnectionString("TodoListDatabase")
-            ?? throw new InvalidOperationException(
-                "Connection string 'TelevisionSeriesContext' not found."
-            )
+        ?? throw new InvalidOperationException(
+            "Connection string 'TodoListDatabase' not found."
+        )
     )
 );
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+builder.Services.AddEndpointsApiExplorer();
+
 var app = builder.Build();
 
-RouteGroupBuilder todoItems = app.MapGroup("/todoitems");
+// Initialize the database with seed data
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    SeedTodoData.Initialize(services);
+}
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+var todoItems = app.MapGroup("/api/todoitems");
 
 todoItems.MapGet("/", GetAllTodos);
 todoItems.MapGet("/complete", GetCompleteTodos);
@@ -23,8 +35,6 @@ todoItems.MapGet("/{id}", GetTodo);
 todoItems.MapPost("/", CreateTodo);
 todoItems.MapPut("/{id}", UpdateTodo);
 todoItems.MapDelete("/{id}", DeleteTodo);
-
-app.Run();
 
 static async Task<IResult> GetAllTodos(TodoDbContext db)
 {
@@ -83,3 +93,5 @@ static async Task<IResult> DeleteTodo(int id, TodoDbContext db)
 
     return TypedResults.NotFound();
 }
+
+app.Run();
